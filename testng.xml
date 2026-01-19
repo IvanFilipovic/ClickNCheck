@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<!--
+    ClickNCheck TestNG Configuration
+
+    This file configures TestNG test execution for the ClickNCheck mobile automation framework.
+
+    Features:
+    - Parallel execution of Android and iOS tests
+    - Configurable device parameters
+    - Multiple test suites for different scenarios
+    - Verbose logging enabled
+
+    Usage:
+    1. Update device parameters for your environment
+    2. Run with: mvn clean test
+    3. Or run with: mvn test -DsuiteXmlFile=testng.xml
+
+    To run specific suite:
+    - mvn test -DsuiteXmlFile=testng.xml -Dtest=AndroidTests
+-->
+
+<suite name="ClickNCheck Mobile Test Suite" verbose="1" parallel="tests" thread-count="2">
+
+    <!--
+        Android Test Configuration
+        Configure these parameters for your Android device/emulator
+    -->
+    <test name="Android Tests" enabled="true">
+        <parameter name="platform" value="android"/>
+        <parameter name="deviceName" value="Pixel_5_API_33"/>
+        <parameter name="platformVersion" value="13.0"/>
+        <parameter name="appPackage" value="com.android.settings"/>
+        <parameter name="appActivity" value=".Settings"/>
+        <parameter name="bundleId" value=""/>
+        <parameter name="udid" value=""/>
+        <parameter name="xcodeOrgId" value=""/>
+        <parameter name="xcodeSigningId" value=""/>
+
+        <classes>
+            <class name="com.exit3.testing.ExampleTest">
+                <!-- Uncomment to run specific test methods -->
+                <!--
+                <methods>
+                    <include name="testBasicInteraction"/>
+                    <include name="testListInteraction"/>
+                </methods>
+                -->
+            </class>
+        </classes>
+    </test>
+
+    <!--
+        iOS Test Configuration
+        Configure these parameters for your iOS device/simulator
+        Note: Requires macOS and Xcode
+    -->
+    <test name="iOS Tests" enabled="false">
+        <parameter name="platform" value="ios"/>
+        <parameter name="deviceName" value="iPhone 14"/>
+        <parameter name="platformVersion" value="16.0"/>
+        <parameter name="appPackage" value=""/>
+        <parameter name="appActivity" value=""/>
+        <parameter name="bundleId" value="com.apple.Preferences"/>
+        <parameter name="udid" value="00008030-XXXXXXXXXXXX"/>
+        <parameter name="xcodeOrgId" value="YOUR_TEAM_ID"/>
+        <parameter name="xcodeSigningId" value="iPhone Developer"/>
+
+        <classes>
+            <class name="com.exit3.testing.ExampleTest"/>
+        </classes>
+    </test>
+
+</suite>
