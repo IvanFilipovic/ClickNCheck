@@ -8,8 +8,66 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Thread-safe test logger for tracking test execution steps.
- * Each test thread maintains its own log messages.
+ * Thread-safe test logger for tracking test execution steps with timestamps.
+ * <p>
+ * Each test thread maintains its own independent log messages using ThreadLocal storage,
+ * making this class safe for parallel test execution. Log entries include timestamps,
+ * step numbers, and messages.
+ * </p>
+ *
+ * <h2>Key Features:</h2>
+ * <ul>
+ *   <li>Thread-safe logging using ThreadLocal</li>
+ *   <li>Automatic timestamping (Instant precision)</li>
+ *   <li>Sequential step numbering per thread</li>
+ *   <li>JSON export with Gson</li>
+ *   <li>Memory leak prevention with cleanup()</li>
+ * </ul>
+ *
+ * <h2>Usage Example:</h2>
+ * <pre>{@code
+ * @BeforeMethod
+ * public void setup() {
+ *     TestLogger.clearLogs(); // Start fresh for each test
+ *     TestLogger.LogEntry.resetStepCounter();
+ * }
+ *
+ * @Test
+ * public void testLogin() {
+ *     TestLogger.addLogMessage("Starting login test");
+ *     TestLogger.addLogMessage("Clicking login button");
+ *     // ... test execution ...
+ * }
+ *
+ * @AfterMethod
+ * public void teardown() {
+ *     String logs = TestLogger.getLogMessagesAsJson();
+ *     // Save or report logs
+ *     TestLogger.cleanup(); // Prevent memory leaks
+ *     TestLogger.LogEntry.cleanupStepCounter();
+ * }
+ * }</pre>
+ *
+ * <h2>JSON Output Format:</h2>
+ * <pre>{@code
+ * [
+ *   {
+ *     "timestamp": "2026-01-20T10:15:30.123Z",
+ *     "message": "Starting login test",
+ *     "stepNumber": 1
+ *   },
+ *   {
+ *     "timestamp": "2026-01-20T10:15:31.456Z",
+ *     "message": "Clicking login button",
+ *     "stepNumber": 2
+ *   }
+ * ]
+ * }</pre>
+ *
+ * @author ClickNCheck Framework
+ * @version 2.0
+ * @since 1.0
+ * @see LogEntry
  */
 public class TestLogger {
     private static final ThreadLocal<List<LogEntry>> logMessages = ThreadLocal.withInitial(ArrayList::new);

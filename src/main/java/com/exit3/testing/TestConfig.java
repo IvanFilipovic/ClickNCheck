@@ -1,8 +1,38 @@
 package com.exit3.testing;
 
 /**
- * Configuration class for test framework settings.
- * Values can be configured via system properties or use sensible defaults.
+ * Centralized configuration class for the ClickNCheck mobile automation framework.
+ * <p>
+ * This class provides configurable constants for wait timeouts, screenshot management,
+ * and other framework settings. All values can be customized via system properties,
+ * making the framework flexible for different test environments.
+ * </p>
+ *
+ * <h2>Usage Examples:</h2>
+ * <pre>{@code
+ * // Use default values
+ * WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
+ *
+ * // Configure via Maven
+ * mvn test -Ddefault.wait=40 -Dscreenshot.dir=/tmp/screenshots
+ *
+ * // Configure via code (before tests run)
+ * System.setProperty("default.wait", "40");
+ * System.setProperty("screenshot.dir", "/tmp/screenshots");
+ * }</pre>
+ *
+ * <h2>Available Configuration Properties:</h2>
+ * <ul>
+ *   <li><b>default.wait</b> - Default wait timeout in seconds (default: 30)</li>
+ *   <li><b>long.wait</b> - Long wait timeout in seconds (default: 60)</li>
+ *   <li><b>short.wait</b> - Short wait timeout in seconds (default: 10)</li>
+ *   <li><b>screenshot.dir</b> - Screenshot directory path (default: target/screenshots)</li>
+ *   <li><b>screenshot.retention.days</b> - Days to keep screenshots (default: 7)</li>
+ * </ul>
+ *
+ * @author ClickNCheck Framework
+ * @version 1.0
+ * @since 1.0
  */
 public class TestConfig {
     /**
