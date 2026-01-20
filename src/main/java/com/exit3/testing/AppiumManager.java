@@ -18,9 +18,14 @@ public class AppiumManager {
      *
      * **/
     public static void startAppiumServer(String ipAddress, String port) {
+        // Use environment variable or system property for Appium path
+        // Defaults to "appium" (assumes it's in PATH)
+        String appiumPath = System.getProperty("appium.path",
+            System.getenv().getOrDefault("APPIUM_PATH", "appium"));
+
         AppiumServiceBuilder builder = new AppiumServiceBuilder()
                 .withIPAddress(ipAddress)
-                .withAppiumJS(new File("/opt/homebrew/bin/appium"))
+                .withAppiumJS(new File(appiumPath))
                 .usingPort(Integer.parseInt(port))
                 .withArgument(GeneralServerFlag.LOG_LEVEL, "error");
 
