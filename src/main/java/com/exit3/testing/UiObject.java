@@ -6,7 +6,7 @@ import io.appium.java_client.android.AndroidDriver;
 import io.appium.java_client.ios.IOSDriver;
 import io.appium.java_client.touch.WaitOptions;
 import io.appium.java_client.touch.offset.PointOption;
-import junit.framework.Assert;
+import org.junit.Assert;
 import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.*;
 import org.openqa.selenium.NoSuchElementException;
