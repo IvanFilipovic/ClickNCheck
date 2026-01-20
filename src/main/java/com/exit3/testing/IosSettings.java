@@ -6,7 +6,7 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-import static agency.sevenofnine.testing.AppiumManager.startAppiumServer;
+import static com.exit3.testing.AppiumManager.startAppiumServer;
 
 
 public class IosSettings {

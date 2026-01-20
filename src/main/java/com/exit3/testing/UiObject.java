@@ -63,103 +63,232 @@ public class UiObject {
     public static void setPlatform(String platformValue) {
         platform.set(platformValue);
     }
+
+    /**
+     * Helper method to find By locator using reflection with better error messages
+     */
+    private By findByLocator(String selector, String locator, String elementName) {
+        try {
+            Method method = By.class.getMethod(selector, String.class);
+            return (By) method.invoke(null, locator);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(
+                "Invalid selector type: '" + selector + "' for element: " + elementName +
+                ". Valid By selector types: xpath, id, className, name, linkText, partialLinkText, tagName, cssSelector", e
+            );
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(
+                "Failed to create By locator with selector: " + selector + "(" + locator + ") for element: " + elementName,
+                e.getCause()
+            );
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(
+                "Access denied when creating By locator for element: " + elementName + " with selector: " + selector, e
+            );
+        }
+    }
+
+    /**
+     * Helper method to find AppiumBy locator using reflection with better error messages
+     */
+    private AppiumBy findAppiumByLocator(String selector, String locator, String elementName) {
+        try {
+            Method method = AppiumBy.class.getMethod(selector, String.class);
+            return (AppiumBy) method.invoke(null, locator);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(
+                "Invalid selector type: '" + selector + "' for element: " + elementName +
+                ". Valid AppiumBy selector types: accessibilityId, androidUIAutomator, iOSClassChain, iOSNsPredicateString, etc.", e
+            );
+        } catch (InvocationTargetException e) {
+            throw new RuntimeException(
+                "Failed to create AppiumBy locator with selector: " + selector + "(" + locator + ") for element: " + elementName,
+                e.getCause()
+            );
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(
+                "Access denied when creating AppiumBy locator for element: " + elementName + " with selector: " + selector, e
+            );
+        }
+    }
+
+    /**
+     * Validates that platform is set and driver is initialized
+     */
+    private void validatePlatformAndDriver() {
+        if (getPlatform() == null) {
+            throw new IllegalStateException("Platform not set. Call UiObject.setPlatform() before using UiObject methods.");
+        }
+
+        if ("android".equalsIgnoreCase(getPlatform())) {
+            AndroidDriver driver = AndroidSettings.driverAndroid.get();
+            if (driver == null) {
+                throw new IllegalStateException("Android driver not initialized. Call AndroidSettings.initialize() first.");
+            }
+        } else if ("ios".equalsIgnoreCase(getPlatform())) {
+            IOSDriver driver = IosSettings.driverIos.get();
+            if (driver == null) {
+                throw new IllegalStateException("iOS driver not initialized. Call IosSettings.initialize() first.");
+            }
+        } else {
+            throw new IllegalStateException("Invalid platform: " + getPlatform() + ". Must be 'android' or 'ios'.");
+        }
+    }
+
     public static String screenshotAndroid(String element_name, String element_locator) throws IOException{
         driverAndroid = AndroidSettings.driverAndroid.get();
+        if (driverAndroid == null) {
+            throw new IllegalStateException("Android driver is not initialized. Call AndroidSettings.initialize() first.");
+        }
+
         File srcFile = driverAndroid.getScreenshotAs(OutputType.FILE);
         String filename = element_name;
         long timestamp = System.currentTimeMillis();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
         String readableTime = sdf.format(new Date(timestamp));
-        File targetFile = new File(System.getProperty("user.dir") + "/screenshots/android/" + filename + "-" + readableTime + ".jpg");
+
+        // Create screenshot directory if it doesn't exist
+        File screenshotDir = new File(TestConfig.SCREENSHOT_DIR + "/android");
+        screenshotDir.mkdirs();
+
+        File targetFile = new File(screenshotDir, filename + "-" + readableTime + ".jpg");
         try {
             FileUtils.copyFile(srcFile, targetFile);
+            TestLogger.addLogMessage("Screenshot saved: " + targetFile.getAbsolutePath());
         } catch (IOException e) {
-            e.printStackTrace();
+            TestLogger.addLogMessage("Failed to save screenshot: " + e.getMessage());
+            throw new IOException("Failed to save screenshot for element: " + element_name, e);
         }
         byte[] fileContent = Files.readAllBytes(targetFile.toPath());
         return Base64.getEncoder().encodeToString(fileContent);
     }
     public static String screenshotIos(String element_name, String element_locator) throws IOException{
         driverIos = IosSettings.driverIos.get();
+        if (driverIos == null) {
+            throw new IllegalStateException("iOS driver is not initialized. Call IosSettings.initialize() first.");
+        }
+
         File srcFile = driverIos.getScreenshotAs(OutputType.FILE);
         String filename = element_name;
         long timestamp = System.currentTimeMillis();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
         String readableTime = sdf.format(new Date(timestamp));
-        File targetFile = new File(System.getProperty("user.dir") + "/screenshots/ios/" + filename + "-" + readableTime + ".jpg");
+
+        // Create screenshot directory if it doesn't exist
+        File screenshotDir = new File(TestConfig.SCREENSHOT_DIR + "/ios");
+        screenshotDir.mkdirs();
+
+        File targetFile = new File(screenshotDir, filename + "-" + readableTime + ".jpg");
         try {
             FileUtils.copyFile(srcFile, targetFile);
+            TestLogger.addLogMessage("Screenshot saved: " + targetFile.getAbsolutePath());
         } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return "test";
-    }
-    public static String screenshotFail(String testName) throws IOException{
-        File srcFile;
-        if("android".equalsIgnoreCase(getPlatform())) {
-            driverAndroid = AndroidSettings.driverAndroid.get();
-            srcFile = driverAndroid.getScreenshotAs(OutputType.FILE);
-        }
-        else {
-            driverIos = IosSettings.driverIos.get();
-            srcFile = driverIos.getScreenshotAs(OutputType.FILE);
-        }
-        String filename = testName;
-        long timestamp = System.currentTimeMillis();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String readableTime = sdf.format(new Date(timestamp));
-        File targetFile = new File(System.getProperty("user.dir") + "/screenshots/fails/" + filename + "-" + readableTime + ".jpg");
-        try {
-            FileUtils.copyFile(srcFile, targetFile);
-        } catch (IOException e) {
-            e.printStackTrace();
+            TestLogger.addLogMessage("Failed to save screenshot: " + e.getMessage());
+            throw new IOException("Failed to save screenshot for element: " + element_name, e);
         }
         byte[] fileContent = Files.readAllBytes(targetFile.toPath());
         return Base64.getEncoder().encodeToString(fileContent);
     }
-    public UiObject findOneElement() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
+    public static String screenshotFail(String testName) throws IOException{
+        if (getPlatform() == null) {
+            throw new IllegalStateException("Platform not set. Call UiObject.setPlatform() first.");
+        }
+
+        File srcFile;
+        if("android".equalsIgnoreCase(getPlatform())) {
+            driverAndroid = AndroidSettings.driverAndroid.get();
+            if (driverAndroid == null) {
+                throw new IllegalStateException("Android driver is not initialized. Call AndroidSettings.initialize() first.");
+            }
+            srcFile = driverAndroid.getScreenshotAs(OutputType.FILE);
+        }
+        else {
+            driverIos = IosSettings.driverIos.get();
+            if (driverIos == null) {
+                throw new IllegalStateException("iOS driver is not initialized. Call IosSettings.initialize() first.");
+            }
+            srcFile = driverIos.getScreenshotAs(OutputType.FILE);
+        }
+
+        String filename = testName;
+        long timestamp = System.currentTimeMillis();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss");
+        String readableTime = sdf.format(new Date(timestamp));
+
+        // Create screenshot directory if it doesn't exist
+        File screenshotDir = new File(TestConfig.SCREENSHOT_DIR + "/fails");
+        screenshotDir.mkdirs();
+
+        File targetFile = new File(screenshotDir, filename + "-" + readableTime + ".jpg");
+        try {
+            FileUtils.copyFile(srcFile, targetFile);
+            TestLogger.addLogMessage("Failure screenshot saved: " + targetFile.getAbsolutePath());
+        } catch (IOException e) {
+            TestLogger.addLogMessage("Failed to save failure screenshot: " + e.getMessage());
+            throw new IOException("Failed to save failure screenshot for test: " + testName, e);
+        }
+        byte[] fileContent = Files.readAllBytes(targetFile.toPath());
+        return Base64.getEncoder().encodeToString(fileContent);
+    }
+    public UiObject findOneElement() throws IOException {
+        validatePlatformAndDriver();
+
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
             try {
                 if (Objects.equals(android_selector, "xpath")) {
-                    Method method = By.class.getMethod(android_selector, String.class);
-                    By by = (By) method.invoke(null, android_locator);
+                    By by = findByLocator(android_selector, android_locator, element_name);
                     driverAndroid.findElement(by);
-                    TestLogger.addLogMessage("Element " + element_name + " is found");
+                    TestLogger.addLogMessage("Element '" + element_name + "' found using " + android_selector + ": " + android_locator);
                 }else {
-                    Method method = AppiumBy.class.getMethod(android_selector, String.class);
-                    AppiumBy by = (AppiumBy) method.invoke(null, android_locator);
+                    AppiumBy by = findAppiumByLocator(android_selector, android_locator, element_name);
                     driverAndroid.findElement(by);
-                    TestLogger.addLogMessage("Element " + element_name + " is found");
+                    TestLogger.addLogMessage("Element '" + element_name + "' found using " + android_selector + ": " + android_locator);
                 }
             }
-            catch (NoSuchElementException | TimeoutException | StaleElementReferenceException e) {
-                boolean fail = !true;
-                TestLogger.addLogMessage("Element " + element_name + " is not found");
+            catch (NoSuchElementException e) {
+                TestLogger.addLogMessage("Element '" + element_name + "' not found using " + android_selector + ": " + android_locator);
                 screenshotAndroid(element_name, android_locator);
-                assert  fail = false : "Error" + e;
+                throw new NoSuchElementException("Element not found: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (TimeoutException e) {
+                TestLogger.addLogMessage("Timeout waiting for element '" + element_name + "' using " + android_selector + ": " + android_locator);
+                screenshotAndroid(element_name, android_locator);
+                throw new TimeoutException("Timeout finding element: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (StaleElementReferenceException e) {
+                TestLogger.addLogMessage("Stale element reference for '" + element_name + "' using " + android_selector + ": " + android_locator);
+                screenshotAndroid(element_name, android_locator);
+                throw new StaleElementReferenceException("Stale element: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
             }
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
-                    Method method = By.class.getMethod(ios_selector, String.class);
-                    By by = (By) method.invoke(null, ios_locator);
+                    By by = findByLocator(ios_selector, ios_locator, element_name);
                     driverIos.findElement(by);
-                    TestLogger.addLogMessage("Element " + element_name + " je pronađen");
+                    TestLogger.addLogMessage("Element '" + element_name + "' found using " + ios_selector + ": " + ios_locator);
                 }else {
-                    Method method = AppiumBy.class.getMethod(ios_selector, String.class);
-                    AppiumBy by = (AppiumBy) method.invoke(null, ios_locator);
+                    AppiumBy by = findAppiumByLocator(ios_selector, ios_locator, element_name);
                     driverIos.findElement(by);
-                    TestLogger.addLogMessage("Element " + element_name + " je pronađen");
+                    TestLogger.addLogMessage("Element '" + element_name + "' found using " + ios_selector + ": " + ios_locator);
                 }
             }
-            catch (NoSuchElementException | TimeoutException | StaleElementReferenceException e) {
-                boolean fail = !true;
-                TestLogger.addLogMessage("Element " + element_name + " is not found");
-                screenshotIos(element_name,ios_locator);
-                assert  fail = false : "Error" + e;
+            catch (NoSuchElementException e) {
+                TestLogger.addLogMessage("Element '" + element_name + "' not found using " + ios_selector + ": " + ios_locator);
+                screenshotIos(element_name, ios_locator);
+                throw new NoSuchElementException("Element not found: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (TimeoutException e) {
+                TestLogger.addLogMessage("Timeout waiting for element '" + element_name + "' using " + ios_selector + ": " + ios_locator);
+                screenshotIos(element_name, ios_locator);
+                throw new TimeoutException("Timeout finding element: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (StaleElementReferenceException e) {
+                TestLogger.addLogMessage("Stale element reference for '" + element_name + "' using " + ios_selector + ": " + ios_locator);
+                screenshotIos(element_name, ios_locator);
+                throw new StaleElementReferenceException("Stale element: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
             }
         }
         return this;
@@ -247,7 +376,7 @@ public class UiObject {
     public UiObject sendText(String text) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -269,7 +398,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -294,7 +423,7 @@ public class UiObject {
     public UiObject waitUntil() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -314,7 +443,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -724,63 +853,94 @@ public class UiObject {
      * Metoda prvo ceka dok element ne bude visible, zatim ga validira s isDisplayed
      * i nakon toga salje tekst sa send_keys
      */
-    public UiObject sendTextWithWait(String text) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
+    public UiObject sendTextWithWait(String text) throws IOException {
+        if (text == null) {
+            throw new IllegalArgumentException("Text cannot be null for element: " + element_name);
+        }
+        validatePlatformAndDriver();
+
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
-                    Method method = By.class.getMethod(android_selector, String.class);
-                    By by = (By) method.invoke(null, android_locator);
+                    By by = findByLocator(android_selector, android_locator, element_name);
                     wait.until(ExpectedConditions.visibilityOfElementLocated(by));
                     driverAndroid.findElement(by).sendKeys(text);
-                    TestLogger.addLogMessage("The text '" + text + "' has been sent to the " + element_name + " element");
+                    TestLogger.addLogMessage("Text '" + text + "' sent to element '" + element_name + "' using " + android_selector + ": " + android_locator);
                 }
                 else {
-                    Method method = AppiumBy.class.getMethod(android_selector, String.class);
-                    AppiumBy by = (AppiumBy) method.invoke(null, android_locator);
+                    AppiumBy by = findAppiumByLocator(android_selector, android_locator, element_name);
                     wait.until(ExpectedConditions.visibilityOfElementLocated(by));
                     driverAndroid.findElement(by).sendKeys(text);
-                    TestLogger.addLogMessage("The text '" + text + "' has been sent to the " + element_name + " element");
+                    TestLogger.addLogMessage("Text '" + text + "' sent to element '" + element_name + "' using " + android_selector + ": " + android_locator);
                 }
             }
-            catch (NoSuchElementException | TimeoutException | StaleElementReferenceException e) {
-                TestLogger.addLogMessage("Element " + element_name + " is not found");
+            catch (NoSuchElementException e) {
+                TestLogger.addLogMessage("Element not found for sendText: '" + element_name + "' using " + android_selector + ": " + android_locator);
                 screenshotAndroid(element_name, android_locator);
-                Assert.fail("Error: " + e.getMessage());
+                throw new NoSuchElementException("Failed to send text - element not found: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (TimeoutException e) {
+                TestLogger.addLogMessage("Timeout waiting for element to be visible for sendText: '" + element_name + "' using " + android_selector + ": " + android_locator);
+                screenshotAndroid(element_name, android_locator);
+                throw new TimeoutException("Failed to send text - timeout waiting for element: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (StaleElementReferenceException e) {
+                TestLogger.addLogMessage("Stale element for sendText: '" + element_name + "' using " + android_selector + ": " + android_locator);
+                screenshotAndroid(element_name, android_locator);
+                throw new StaleElementReferenceException("Failed to send text - stale element: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (Exception e) {
+                TestLogger.addLogMessage("Unexpected error sending text to element '" + element_name + "': " + e.getMessage());
+                screenshotAndroid(element_name, android_locator);
+                throw new RuntimeException("Failed to send text to element: " + element_name, e);
             }
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
-                    Method method = By.class.getMethod(ios_selector, String.class);
-                    By by = (By) method.invoke(null, ios_locator);
+                    By by = findByLocator(ios_selector, ios_locator, element_name);
                     wait.until(ExpectedConditions.visibilityOfElementLocated(by));
                     driverIos.findElement(by).sendKeys(text);
-                    TestLogger.addLogMessage("The text '" + text + "' has been sent to the " + element_name + " element");
+                    TestLogger.addLogMessage("Text '" + text + "' sent to element '" + element_name + "' using " + ios_selector + ": " + ios_locator);
                 }
                 else {
-                    Method method = AppiumBy.class.getMethod(ios_selector, String.class);
-                    AppiumBy by = (AppiumBy) method.invoke(null, ios_locator);
+                    AppiumBy by = findAppiumByLocator(ios_selector, ios_locator, element_name);
                     wait.until(ExpectedConditions.visibilityOfElementLocated(by));
                     driverIos.findElement(by).sendKeys(text);
-                    TestLogger.addLogMessage("The text '" + text + "' has been sent to the " + element_name + " element");
+                    TestLogger.addLogMessage("Text '" + text + "' sent to element '" + element_name + "' using " + ios_selector + ": " + ios_locator);
                 }
             }
-            catch (NoSuchElementException | TimeoutException | StaleElementReferenceException e) {
-                TestLogger.addLogMessage("Element " + element_name + " is not found");
+            catch (NoSuchElementException e) {
+                TestLogger.addLogMessage("Element not found for sendText: '" + element_name + "' using " + ios_selector + ": " + ios_locator);
                 screenshotIos(element_name, ios_locator);
-                Assert.fail("Error: " + e.getMessage());
+                throw new NoSuchElementException("Failed to send text - element not found: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (TimeoutException e) {
+                TestLogger.addLogMessage("Timeout waiting for element to be visible for sendText: '" + element_name + "' using " + ios_selector + ": " + ios_locator);
+                screenshotIos(element_name, ios_locator);
+                throw new TimeoutException("Failed to send text - timeout waiting for element: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (StaleElementReferenceException e) {
+                TestLogger.addLogMessage("Stale element for sendText: '" + element_name + "' using " + ios_selector + ": " + ios_locator);
+                screenshotIos(element_name, ios_locator);
+                throw new StaleElementReferenceException("Failed to send text - stale element: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (Exception e) {
+                TestLogger.addLogMessage("Unexpected error sending text to element '" + element_name + "': " + e.getMessage());
+                screenshotIos(element_name, ios_locator);
+                throw new RuntimeException("Failed to send text to element: " + element_name, e);
             }
         }
-        return null;
+        return this;
     }
     public UiObject clearTextWithWait() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -805,7 +965,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -833,7 +993,7 @@ public class UiObject {
     public UiObject sendEnterWithWait() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -858,7 +1018,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -892,7 +1052,7 @@ public class UiObject {
         String text = null;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -917,7 +1077,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -946,58 +1106,86 @@ public class UiObject {
      * Metoda prvo ceka dok element ne bude visible, zatim ga validira s isDisplayed
      * i nakon toga ga klika.
      */
-    public UiObject clickWithWait() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
+    public UiObject clickWithWait() throws IOException {
+        validatePlatformAndDriver();
+
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
-                    Method method = By.class.getMethod(android_selector, String.class);
-                    By by = (By) method.invoke(null, android_locator);
+                    By by = findByLocator(android_selector, android_locator, element_name);
                     wait.until(ExpectedConditions.elementToBeClickable(by));
                     driverAndroid.findElement(by).click();
-                    TestLogger.addLogMessage("Element " + element_name + " is clicked");
+                    TestLogger.addLogMessage("Clicked element '" + element_name + "' using " + android_selector + ": " + android_locator);
                 }
                 else {
-                    Method method = AppiumBy.class.getMethod(android_selector, String.class);
-                    AppiumBy by = (AppiumBy) method.invoke(null, android_locator);
+                    AppiumBy by = findAppiumByLocator(android_selector, android_locator, element_name);
                     wait.until(ExpectedConditions.elementToBeClickable(by));
                     driverAndroid.findElement(by).click();
-                    TestLogger.addLogMessage("Element " + element_name + " is clicked");
+                    TestLogger.addLogMessage("Clicked element '" + element_name + "' using " + android_selector + ": " + android_locator);
                 }
             }
-            catch (NoSuchElementException | TimeoutException | StaleElementReferenceException e) {
-                TestLogger.addLogMessage("Element " + element_name + " is not found");
+            catch (NoSuchElementException e) {
+                TestLogger.addLogMessage("Element not found for click: '" + element_name + "' using " + android_selector + ": " + android_locator);
                 screenshotAndroid(element_name, android_locator);
-                Assert.fail("Error: " + e.getMessage());
+                throw new NoSuchElementException("Failed to click - element not found: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (TimeoutException e) {
+                TestLogger.addLogMessage("Timeout waiting for element to be clickable: '" + element_name + "' using " + android_selector + ": " + android_locator);
+                screenshotAndroid(element_name, android_locator);
+                throw new TimeoutException("Failed to click - timeout waiting for element: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (StaleElementReferenceException e) {
+                TestLogger.addLogMessage("Stale element for click: '" + element_name + "' using " + android_selector + ": " + android_locator);
+                screenshotAndroid(element_name, android_locator);
+                throw new StaleElementReferenceException("Failed to click - stale element: " + element_name + " using " + android_selector + "(" + android_locator + ")", e);
+            }
+            catch (Exception e) {
+                TestLogger.addLogMessage("Unexpected error clicking element '" + element_name + "': " + e.getMessage());
+                screenshotAndroid(element_name, android_locator);
+                throw new RuntimeException("Failed to click element: " + element_name, e);
             }
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
-                    Method method = By.class.getMethod(ios_selector, String.class);
-                    By by = (By) method.invoke(null, ios_locator);
+                    By by = findByLocator(ios_selector, ios_locator, element_name);
                     wait.until(ExpectedConditions.elementToBeClickable(by));
                     driverIos.findElement(by).click();
-                    TestLogger.addLogMessage("Element " + element_name + " is clicked");
+                    TestLogger.addLogMessage("Clicked element '" + element_name + "' using " + ios_selector + ": " + ios_locator);
                 }
                 else {
-                    Method method = AppiumBy.class.getMethod(ios_selector, String.class);
-                    AppiumBy by = (AppiumBy) method.invoke(null, ios_locator);
+                    AppiumBy by = findAppiumByLocator(ios_selector, ios_locator, element_name);
                     wait.until(ExpectedConditions.visibilityOfElementLocated(by));
                     driverIos.findElement(by).click();
-                    TestLogger.addLogMessage("Element " + element_name + " is clicked");
+                    TestLogger.addLogMessage("Clicked element '" + element_name + "' using " + ios_selector + ": " + ios_locator);
                 }
             }
-            catch (NoSuchElementException | TimeoutException | StaleElementReferenceException e) {
-                TestLogger.addLogMessage("Element " + element_name + " is not found");
+            catch (NoSuchElementException e) {
+                TestLogger.addLogMessage("Element not found for click: '" + element_name + "' using " + ios_selector + ": " + ios_locator);
                 screenshotIos(element_name, ios_locator);
-                Assert.fail("Error: " + e.getMessage());
+                throw new NoSuchElementException("Failed to click - element not found: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (TimeoutException e) {
+                TestLogger.addLogMessage("Timeout waiting for element to be clickable: '" + element_name + "' using " + ios_selector + ": " + ios_locator);
+                screenshotIos(element_name, ios_locator);
+                throw new TimeoutException("Failed to click - timeout waiting for element: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (StaleElementReferenceException e) {
+                TestLogger.addLogMessage("Stale element for click: '" + element_name + "' using " + ios_selector + ": " + ios_locator);
+                screenshotIos(element_name, ios_locator);
+                throw new StaleElementReferenceException("Failed to click - stale element: " + element_name + " using " + ios_selector + "(" + ios_locator + ")", e);
+            }
+            catch (Exception e) {
+                TestLogger.addLogMessage("Unexpected error clicking element '" + element_name + "': " + e.getMessage());
+                screenshotIos(element_name, ios_locator);
+                throw new RuntimeException("Failed to click element: " + element_name, e);
             }
         }
-        return null;
+        return this;
     }
     /** Metoda za izvlacenje lokacije koja se sprema u varijablu.
      * @param location varijabla koja sadrži koordinate elementa
@@ -1007,7 +1195,7 @@ public class UiObject {
         Point location = null;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -1029,7 +1217,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -1065,7 +1253,7 @@ public class UiObject {
         this.child_ios_locator = child.ios_locator;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(child_android_selector, "xpath")) {
                     Method parent_method = By.class.getMethod(android_selector, String.class);
@@ -1099,7 +1287,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(child_ios_selector, "xpath")) {
                     Method parent_method = By.class.getMethod(ios_selector, String.class);
@@ -1149,7 +1337,7 @@ public class UiObject {
         this.child_ios_locator = child.ios_locator;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(child_android_selector, "xpath")) {
                     Method parent_method = By.class.getMethod(android_selector, String.class);
@@ -1183,7 +1371,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(child_ios_selector, "xpath")) {
                     Method parent_method = By.class.getMethod(ios_selector, String.class);
@@ -1230,7 +1418,7 @@ public class UiObject {
         this.child_ios_locator = child.ios_locator;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(child_android_selector, "xpath")) {
                     Method parent_method = By.class.getMethod(android_selector, String.class);
@@ -1264,7 +1452,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method parent_method = By.class.getMethod(ios_selector, String.class);
@@ -1312,7 +1500,7 @@ public class UiObject {
             try {
                 if ("android".equalsIgnoreCase(getPlatform())) {
                     driverAndroid = AndroidSettings.driverAndroid.get();
-                    WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(5));
+                    WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.SHORT_WAIT));
                     if (Objects.equals(android_selector, "xpath")) {
                         Method method = By.class.getMethod(android_selector, String.class);
                         By by = (By) method.invoke(null, android_locator);
@@ -1326,7 +1514,7 @@ public class UiObject {
                     }
                 } else if ("ios".equalsIgnoreCase(getPlatform())) {
                     driverIos = IosSettings.driverIos.get();
-                    WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(5));
+                    WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.SHORT_WAIT));
                     if (Objects.equals(ios_selector, "xpath")) {
                         Method method = By.class.getMethod(ios_selector, String.class);
                         By by = (By) method.invoke(null, ios_locator);
@@ -1385,7 +1573,7 @@ public class UiObject {
             try {
                 if ("android".equalsIgnoreCase(getPlatform())) {
                     driverAndroid = AndroidSettings.driverAndroid.get();
-                    WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(5));
+                    WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.SHORT_WAIT));
 
                     if (!Objects.equals(text, "noTextSearch")) {
                         if (Objects.equals(android_selector, "xpath")) {
@@ -1415,7 +1603,7 @@ public class UiObject {
                     }
                 } else if ("ios".equalsIgnoreCase(getPlatform())) {
                     driverIos = IosSettings.driverIos.get();
-                    WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(5));
+                    WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.SHORT_WAIT));
 
                     String ios_xpath_locator = null;
 
@@ -1500,7 +1688,7 @@ public class UiObject {
             try {
                 if("android".equalsIgnoreCase(getPlatform())){
                     driverAndroid = AndroidSettings.driverAndroid.get();
-                    WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(5));
+                    WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.SHORT_WAIT));
                     if (!Objects.equals(text, "noTextSearch")) {
                         if (Objects.equals(android_selector, "xpath")) {
                             String android_xpath_locator = "//" + android_locator + "[@text=\"" + text + "\"]";
@@ -1531,7 +1719,7 @@ public class UiObject {
                 }
                 else if("ios".equalsIgnoreCase(getPlatform())){
                     driverIos = IosSettings.driverIos.get();
-                    WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(5));
+                    WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.SHORT_WAIT));
                     if (!Objects.equals(text, "noTextSearch")) {
                         String ios_xpath_locator = null;
                         if (Objects.equals(ios_selector, "xpath")) {
@@ -1613,7 +1801,7 @@ public class UiObject {
         Point location = null;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -1657,7 +1845,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -1705,7 +1893,7 @@ public class UiObject {
         Point location = null;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -1748,7 +1936,7 @@ public class UiObject {
             }
         }else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -1796,7 +1984,7 @@ public class UiObject {
         Point location = null;
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -1840,7 +2028,7 @@ public class UiObject {
             }
         }else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(40));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -2164,7 +2352,7 @@ public class UiObject {
     public UiObject clickElementWithText(String text) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String android_xpath_locator = "//" + android_locator + "[@text=\"" + text + "\"]";
             try {
                 if (Objects.equals(android_selector, "xpath")) {
@@ -2189,7 +2377,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String ios_xpath_locator = null;
             if (Objects.equals(ios_selector, "xpath")) {
                 ios_xpath_locator = "//" + ios_locator + "[@name=\"" + text + "\"]";
@@ -2229,7 +2417,7 @@ public class UiObject {
     public UiObject clickElementWithTextAndIndex(String text, int index) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String android_xpath_locator = "//" + android_locator + "[@text=\"" + text + "\"]";
             try {
                 if (Objects.equals(android_selector, "xpath")) {
@@ -2258,7 +2446,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String ios_xpath_locator = null;
             if (Objects.equals(ios_selector, "xpath")) {
                 ios_xpath_locator = "//" + ios_locator + "[@name=\"" + text + "\"]";
@@ -2302,7 +2490,7 @@ public class UiObject {
     public UiObject findElementWithText(String text) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String android_xpath_locator = "//" + android_locator + "[@text=\"" + text + "\"]";
             try {
                 if (Objects.equals(android_selector, "xpath")) {
@@ -2327,7 +2515,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String ios_xpath_locator = null;
             if (Objects.equals(ios_selector, "xpath")) {
                 ios_xpath_locator = "//" + ios_locator + "[@name=\"" + text + "\"]";
@@ -2368,7 +2556,7 @@ public class UiObject {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
                     By by = (By) method.invoke(null, android_locator);
@@ -2396,7 +2584,7 @@ public class UiObject {
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
                     By by = (By) method.invoke(null, ios_locator);
@@ -2427,7 +2615,7 @@ public class UiObject {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
                     By by = (By) method.invoke(null, android_locator);
@@ -2455,7 +2643,7 @@ public class UiObject {
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
                     By by = (By) method.invoke(null, ios_locator);
@@ -2487,7 +2675,7 @@ public class UiObject {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
                     By by = (By) method.invoke(null, android_locator);
@@ -2515,7 +2703,7 @@ public class UiObject {
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
                     By by = (By) method.invoke(null, ios_locator);
@@ -2545,7 +2733,7 @@ public class UiObject {
     public UiObject clearTextFromElementWithIndexAndWait(Integer index) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
@@ -2574,7 +2762,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             try {
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
@@ -2616,7 +2804,7 @@ public class UiObject {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
                     By by = (By) method.invoke(null, android_locator);
@@ -2658,7 +2846,7 @@ public class UiObject {
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
                     By by = (By) method.invoke(null, ios_locator);
@@ -2713,7 +2901,7 @@ public class UiObject {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
                     By by = (By) method.invoke(null, android_locator);
@@ -2755,7 +2943,7 @@ public class UiObject {
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = By.class.getMethod(ios_selector, String.class);
                     By by = (By) method.invoke(null, ios_locator);
@@ -2809,7 +2997,7 @@ public class UiObject {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(android_selector, "xpath")) {
                     Method method = By.class.getMethod(android_selector, String.class);
                     By by = (By) method.invoke(null, android_locator);
@@ -2852,7 +3040,7 @@ public class UiObject {
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
             try {
-                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+                WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
                 if (Objects.equals(ios_selector, "xpath")) {
                     Method method = AppiumBy.class.getMethod(ios_selector, String.class);
                     AppiumBy by = (AppiumBy) method.invoke(null, ios_locator);
@@ -2897,7 +3085,7 @@ public class UiObject {
     public UiObject clickElementThatContainsText(String text) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException, IOException {
         if("android".equalsIgnoreCase(getPlatform())){
             driverAndroid = AndroidSettings.driverAndroid.get();
-            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverAndroid, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String android_xpath_locator = "//" + android_locator + "[contains(text()," + text + ")]";
             try {
                 if (Objects.equals(android_selector, "xpath")) {
@@ -2922,7 +3110,7 @@ public class UiObject {
         }
         else if("ios".equalsIgnoreCase(getPlatform())){
             driverIos = IosSettings.driverIos.get();
-            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(50));
+            WebDriverWait wait = new WebDriverWait(driverIos, Duration.ofSeconds(TestConfig.DEFAULT_WAIT));
             String ios_xpath_locator = null;
             if (Objects.equals(ios_selector, "xpath")) {
                 ios_xpath_locator = "//" + ios_locator + "[contains(text()," + text + ")]";

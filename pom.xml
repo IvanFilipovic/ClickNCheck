@@ -18,6 +18,7 @@
     <selenium.version>4.25.0</selenium.version>
     <testng.version>7.9.0</testng.version>
     <slf4j.version>2.0.9</slf4j.version>
+    <logback.version>1.4.14</logback.version>
     <commons-io.version>2.15.1</commons-io.version>
   </properties>
 
@@ -58,11 +59,11 @@
       <version>${slf4j.version}</version>
     </dependency>
 
-    <!-- SLF4J Simple Implementation -->
+    <!-- Logback Classic (includes logback-core) -->
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-      <version>${slf4j.version}</version>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>${logback.version}</version>
     </dependency>
 
     <!-- JSON Processing (for TestLogger) -->

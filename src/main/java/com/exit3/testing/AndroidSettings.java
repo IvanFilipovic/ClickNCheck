@@ -11,7 +11,7 @@ public class AndroidSettings extends AppiumManager {
     public static URL url;
     public static ThreadLocal<AndroidDriver> driverAndroid = new ThreadLocal<>();
     public static DesiredCapabilities capabilities;
-    public static AndroidDriver initialize(String phoneName, String phoneVersion, String ipAddress, String port) throws IOException, InterruptedException {
+    public static AndroidDriver initialize(String phoneName, String phoneVersion, String appPath, String appPackage, String appActivity, String ipAddress, String port) throws IOException, InterruptedException {
         startAppiumServer(ipAddress,port);
 
         final String URL_STRING = "http://localhost:" + port;
@@ -32,10 +32,17 @@ public class AndroidSettings extends AppiumManager {
         capabilities.setCapability("appium:settings[waitForQuiescence]", false);
         capabilities.setCapability("appium:settings[snapshotMaxDepth]", 30);
         capabilities.setCapability("appium:settings[pageSourceExcludedAttributes]", "visible,enabled,x,y,width,height");
-        // capabilities.setCapability("appium:app", appPath);
-        // capabilities.setCapability("appium:appPackage", appPackage);
-        // capabilities.setCapability("appium:appActivity", appActivity);
 
+        // Set app capabilities if provided
+        if (appPath != null && !appPath.isEmpty()) {
+            capabilities.setCapability("appium:app", appPath);
+        }
+        if (appPackage != null && !appPackage.isEmpty()) {
+            capabilities.setCapability("appium:appPackage", appPackage);
+        }
+        if (appActivity != null && !appActivity.isEmpty()) {
+            capabilities.setCapability("appium:appActivity", appActivity);
+        }
 
         driverAndroid.set(new AndroidDriver(url, capabilities));
         return driverAndroid.get();
